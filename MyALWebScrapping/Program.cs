@@ -5,8 +5,8 @@ using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
-using System.Threading;
 
 namespace MyALWebScrapping
 {
@@ -25,30 +25,37 @@ namespace MyALWebScrapping
                 {
                     int amountOfScrappedData = 0;
 
+                    var sw = new Stopwatch();
+
                     while (amountOfScrappedData <= 1000)
                     {
                         IList<IWebElement> rows = driver.FindElements(By.ClassName("ranking-list"));
+                        IList<IWebElement> ranks = driver.FindElements(By.ClassName("top-anime-rank-text"));
+                        IList<IWebElement> names = driver.FindElements(By.ClassName("anime_ranking_h3"));
+                        IList<IWebElement> scores = driver.FindElements(By.ClassName("score-label"));
 
-                        int rank = 0;
-                        string name = null;
-                        double score = 0;
-
+                        sw.Start();
                         foreach (IWebElement row in rows)
                         {
-                            rank = Int32.Parse(row.FindElement(By.ClassName("top-anime-rank-text")).Text);
-                            name = row.FindElement(By.ClassName("anime_ranking_h3")).Text;
-                            score = Double.Parse(row.FindElement(By.ClassName("score-label")).Text, CultureInfo.InvariantCulture);
+                            int rank = int.Parse(ranks[rows.IndexOf(row)].Text);
+                            string name = names[rows.IndexOf(row)].Text;
+                            double score = 0;
+
+                            if (scores[rows.IndexOf(row)].Text == "N/A")
+                                score = double.Parse(scores[rows.IndexOf(row) + 1].Text, CultureInfo.InvariantCulture);
+                            else
+                                score = double.Parse(scores[rows.IndexOf(row)].Text, CultureInfo.InvariantCulture);
 
                             Anime anime = new Anime(rank, name, score);
-
-                            Console.WriteLine("RANK: " + anime.Rank);
-                            Console.WriteLine("NAME: " + anime.Name);
-                            Console.WriteLine("SCORE: " + anime.Score);
                         }
+                        sw.Stop();
+
+                        Console.WriteLine("TIME: " + sw.ElapsedMilliseconds);
+                        sw.Restart();
 
                         amountOfScrappedData += rows.Count;
 
-                        if (!DidNextPaginationLoaded(driver, rank))
+                        if (!DidNextPaginationLoaded(driver, Convert.ToInt32(ranks[ranks.Count - 1].Text)))
                             break;
                     }
                 }
@@ -93,8 +100,6 @@ namespace MyALWebScrapping
             {
                 currentDriver.FindElement(By.ClassName("next")).Click();
 
-                Thread.Sleep(300);
-
                 int currentTableRank = Convert.ToInt32(currentDriver.FindElement(By.ClassName("top-anime-rank-text")).Text);
 
                 if (currentTableRank > lastCheckedRank)
@@ -111,5 +116,6 @@ namespace MyALWebScrapping
                 return false;
             }
         }
+
     }
 }
